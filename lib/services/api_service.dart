@@ -11,7 +11,7 @@ class ApiService {
       return Uri.base.origin;
     }
     // Fallback for mobile platforms (update this to your Render URL for mobile testing)
-    return 'https://splitwise-backend-bpsrtue25q-uc.a.run.app';
+    return 'https://splitwise-backend-pyjl.onrender.com';
   }
   
   String? _token;

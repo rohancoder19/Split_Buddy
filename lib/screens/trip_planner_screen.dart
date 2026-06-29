@@ -22,7 +22,18 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   final ScrollController _scrollController = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    _chatController.addListener(_onChatTextChanged);
+  }
+
+  void _onChatTextChanged() {
+    setState(() {});
+  }
+
+  @override
   void dispose() {
+    _chatController.removeListener(_onChatTextChanged);
     _chatController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -943,6 +954,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                   ),
           ),
 
+          // Google-like Autocomplete Dropdown List
+          if (_chatController.text.trim().isNotEmpty)
+            _buildAutocompleteSuggestionsList(context, state, group),
+
           // Horizontal Suggestion Chips
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -951,9 +966,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _buildSuggestionChip(context, state, group, "✈️ Suggest Itinerary"),
-                  _buildSuggestionChip(context, state, group, "🏨 Recommend Hotels"),
-                  _buildSuggestionChip(context, state, group, "🎒 Packing Checklist"),
+                  ..._getCurrentSuggestions(group).map((sugg) {
+                    return _buildSuggestionChip(context, state, group, sugg);
+                  }),
                   _buildSuggestionChip(context, state, group, "🧼 Clear Chat", isAction: true),
                 ],
               ),
@@ -1009,6 +1024,118 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     );
   }
 
+  List<String> _getCurrentSuggestions(Group group) {
+    if (group.chatMessages.isEmpty) {
+      return ["✈️ Suggest Itinerary", "🏨 Recommend Hotels", "🎒 Packing Checklist"];
+    }
+    try {
+      final lastAssistantMsg = group.chatMessages.lastWhere(
+        (msg) => msg['sender'] == 'assistant' && msg['suggestions'] != null,
+      );
+      if (lastAssistantMsg['suggestions'] is List) {
+        return List<String>.from(lastAssistantMsg['suggestions']);
+      }
+    } catch (_) {}
+    return ["✈️ Suggest Itinerary", "🏨 Recommend Hotels", "🎒 Packing Checklist"];
+  }
+
+  List<String> _getAutocompleteSuggestions(String query, String destination) {
+    final cleanQuery = query.toLowerCase().trim();
+    if (cleanQuery.isEmpty) return [];
+
+    final templates = [
+      "hotels in $destination",
+      "budget hotels in $destination",
+      "luxury resorts in $destination",
+      "things to do in $destination",
+      "places to visit in $destination",
+      "popular sights in $destination",
+      "itinerary for $destination",
+      "2-day plan for $destination",
+      "3-day plan for $destination",
+      "packing list for $destination",
+      "weather in $destination",
+      "best time to visit $destination",
+      "local food to try in $destination",
+      "best cafes in $destination",
+      "public transport in $destination",
+      "safety tips for $destination",
+      "budget tips for $destination",
+      "shopping spots in $destination",
+      "free things to do in $destination",
+    ];
+
+    return templates.where((t) {
+      if (t.toLowerCase().contains(cleanQuery)) return true;
+      final words = t.toLowerCase().split(' ');
+      return words.any((w) => w.startsWith(cleanQuery));
+    }).take(5).toList();
+  }
+
+  Widget _buildAutocompleteSuggestionsList(BuildContext context, AppState state, Group group) {
+    final query = _chatController.text;
+    final suggestions = _getAutocompleteSuggestions(query, group.name);
+    if (suggestions.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          ),
+        ],
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: suggestions.map((suggestion) {
+          return InkWell(
+            onTap: () {
+              _chatController.clear();
+              state.sendTripChatMessage(group.id, suggestion);
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  Icon(Icons.search, color: Colors.grey[400], size: 18),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      suggestion,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.north_west, color: Colors.grey[400], size: 16),
+                    onPressed: () {
+                      _chatController.text = suggestion;
+                      _chatController.selection = TextSelection.fromPosition(
+                        TextPosition(offset: suggestion.length),
+                      );
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   Widget _buildSuggestionChip(BuildContext context, AppState state, Group group, String label, {bool isAction = false}) {
     return Container(
       margin: const EdgeInsets.only(right: 8),
@@ -1027,7 +1154,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
           if (isAction) {
             state.clearTripChatHistory(group.id);
           } else {
-            final query = label.replaceFirst(RegExp(r'[^\w\s]'), '').trim();
+            var query = label;
+            if (query.startsWith(RegExp(r'[^\w\s]'))) {
+              query = query.replaceFirst(RegExp(r'[^\w\s]+'), '').trim();
+            }
             state.sendTripChatMessage(group.id, query);
           }
         },

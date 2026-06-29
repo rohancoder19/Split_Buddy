@@ -738,6 +738,7 @@ class AppState extends ChangeNotifier {
         'sender': 'assistant',
         'text': "Hi! I am your AI Travel Assistant. ✈️\n\nAsk me anything about your trip to help you plan! I can recommend itineraries, suggest spots to research, or help coordinate packing lists.",
         'timestamp': DateTime.now(),
+        'suggestions': ['✈️ Suggest Itinerary', '🏨 Recommend Hotels', '🎒 Packing Checklist'],
       });
       notifyListeners();
     } catch (_) {}
@@ -752,6 +753,7 @@ class AppState extends ChangeNotifier {
           'sender': 'assistant',
           'text': "Hi! I am your AI Travel Assistant. ✈️\n\nAsk me anything about your trip to help you plan! I can recommend itineraries, suggest spots to research, or help coordinate packing lists.",
           'timestamp': DateTime.now(),
+          'suggestions': ['✈️ Suggest Itinerary', '🏨 Recommend Hotels', '🎒 Packing Checklist'],
         });
       }
 
@@ -805,7 +807,8 @@ class AppState extends ChangeNotifier {
           "1. NEVER reply with a generic welcome message or repeat instructions if the user asks a specific question. Answer their query directly.\n"
           "2. Provide actual recommendation names, a 1-line summary description, and a markdown link for the user to explore or book.\n"
           "3. Use a clean, scannable format with bolding, bullet points, and headers.\n"
-          "4. Format hyperlinks using proper Markdown: [Link Text](URL). Since you are an AI, provide highly reliable search-query URLs to trusted platforms (e.g., TripAdvisor, MakeMyTrip, Google Maps).\n\n"
+          "4. Format hyperlinks using proper Markdown: [Link Text](URL). Since you are an AI, provide highly reliable search-query URLs to trusted platforms (e.g., TripAdvisor, MakeMyTrip, Google Maps).\n"
+          "5. At the end of your response, ALWAYS suggest exactly 3 relevant follow-up actions or questions that the user might want to ask next. Format these suggestions at the very end of your response on a single line starting with: [Suggestions: Suggestion 1 | Suggestion 2 | Suggestion 3]. Make them short and specific (e.g., [Suggestions: Recommend beaches in Goa | What is the cost? | Packing list for Goa]). Do not include this block in the body of your message, keep it strictly formatted as specified.\n\n"
           "EXAMPLE LINK FORMATS TO USE:\n"
           "- Hotels: [View on TripAdvisor](https://www.tripadvisor.in/Search?q=Hotel+Name+${group.name})\n"
           "- Sights: [Search on Google Maps](https://www.google.com/maps/search/places+to+visit+in+${group.name}/)\n\n"
@@ -829,6 +832,7 @@ class AppState extends ChangeNotifier {
         }
       }
 
+      List<String> suggestions = [];
       if (aiResponse.isEmpty) {
         final query = messageText.toLowerCase();
         if (query.contains('itinerary') || query.contains('plan') || query.contains('day') || query.contains('schedule')) {
@@ -837,14 +841,40 @@ class AppState extends ChangeNotifier {
               "• **Day 2**: Cultural exploration and local markets tour.\n"
               "• **Day 3**: Outdoor activities and a sunset dinner.\n\n"
               "Would you like me to suggest specific spots or estimate budgets?";
+          suggestions = ['🏨 Recommend Hotels', '🎒 Packing Checklist', '💰 Cost Estimate'];
         } else if (query.contains('packing') || query.contains('pack') || query.contains('bring')) {
           aiResponse = "Here are packing suggestions for '${group.name}':\n\n"
               "1. 📱 **Essentials**: Chargers, IDs, cash.\n"
               "2. 🧴 **Personal**: Sunscreen, medicine.\n"
               "3. 👟 **Comfort**: Walk shoes, seasonal clothes.\n\n"
               "Assign these tasks to group members under the **Packing** tab!";
+          suggestions = ['✈️ Suggest Itinerary', '🏨 Recommend Hotels', '🍽️ Local Food'];
         } else {
           aiResponse = "I am ready to help you plan! Ask me to recommend itineraries, hotels/sights to pin, or items to pack.";
+          suggestions = ['✈️ Suggest Itinerary', '🏨 Recommend Hotels', '🎒 Packing Checklist'];
+        }
+      } else {
+        // Parse suggestions out of Gemini response
+        final RegExp suggestionRegExp = RegExp(r'\[Suggestions:\s*(.*?)\s*\]', caseSensitive: false);
+        final match = suggestionRegExp.firstMatch(aiResponse);
+        if (match != null) {
+          final suggestionsStr = match.group(1);
+          if (suggestionsStr != null) {
+            suggestions = suggestionsStr
+                .split('|')
+                .map((s) => s.trim())
+                .where((s) => s.isNotEmpty)
+                .toList();
+          }
+          aiResponse = aiResponse.replaceAll(suggestionRegExp, '').trim();
+        } else {
+          // If Gemini response didn't include the tag properly, generate some context-aware defaults
+          final cleanDest = group.name;
+          suggestions = [
+            '✈️ Suggest Itinerary for $cleanDest',
+            '🏨 Recommend Hotels in $cleanDest',
+            '🎒 Packing Checklist'
+          ];
         }
       }
 
@@ -853,6 +883,7 @@ class AppState extends ChangeNotifier {
         'sender': 'assistant',
         'text': aiResponse.trim(),
         'timestamp': DateTime.now(),
+        'suggestions': suggestions,
       });
       notifyListeners();
     } catch (_) {}
