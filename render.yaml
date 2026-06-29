@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: splitwise-backend
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: ohio # You can change this to your preferred region (e.g., frankfurt, oregon, etc.)

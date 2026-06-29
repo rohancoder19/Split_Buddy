@@ -1,0 +1,11 @@
+.gcloudignore
+.git
+.gitignore
+.dart_tool/
+build/
+android/
+ios/
+macos/
+windows/
+.idea/
+*.iml
