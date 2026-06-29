@@ -1,11 +1,18 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
   
-  // Base URL of the Dart Shelf server running on port 3000
-  final String baseUrl = 'https://splitwise-backend-bpsrtue25q-uc.a.run.app';
+  // Base URL resolves dynamically on web to support any hosting provider (Render, Cloud Run, etc.)
+  String get baseUrl {
+    if (kIsWeb) {
+      return Uri.base.origin;
+    }
+    // Fallback for mobile platforms (update this to your Render URL for mobile testing)
+    return 'https://splitwise-backend-bpsrtue25q-uc.a.run.app';
+  }
   
   String? _token;
 
