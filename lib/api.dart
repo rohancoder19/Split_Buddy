@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:io';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:mongo_dart/mongo_dart.dart' show ObjectId;
@@ -39,6 +40,15 @@ class ApiService {
 
   Router get router {
     final router = Router();
+
+    // Config endpoint (to fetch backend variables like Gemini API key securely)
+    router.get('/api/config', (Request request) {
+      final apiKey = Platform.environment['GEMINI_API_KEY'] ?? Platform.environment['GOOGLE_API_KEY'] ?? '';
+      return Response.ok(
+        jsonEncode({'geminiApiKey': apiKey}),
+        headers: {'content-type': 'application/json'},
+      );
+    });
 
     // --- AUTH FLOW ---
     

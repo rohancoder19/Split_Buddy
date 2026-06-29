@@ -31,15 +31,32 @@ class AppState extends ChangeNotifier {
   Timer? _chatPollingTimer;
 
   User? currentUser;
+  String? _serverGeminiApiKey;
 
   bool get isAuthenticated => currentUser != null;
 
   AppState() {
     // We fetch data dynamically after authentication
+    loadConfig();
+  }
+
+  Future<void> loadConfig() async {
+    try {
+      final config = await _api.getConfig();
+      if (config.containsKey('geminiApiKey')) {
+        _serverGeminiApiKey = config['geminiApiKey'];
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint("Error loading config: $e");
+    }
   }
 
   // Helper to safely get Gemini API key
   String? _getGeminiApiKey() {
+    if (_serverGeminiApiKey != null && _serverGeminiApiKey!.isNotEmpty) {
+      return _serverGeminiApiKey;
+    }
     const String userFallbackKey = 'YOUR_API_KEY_HERE';
     if (kIsWeb) {
       const key = String.fromEnvironment('GEMINI_API_KEY');

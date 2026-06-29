@@ -26,6 +26,18 @@ class ApiService {
 
   bool get hasToken => _token != null;
 
+  Future<Map<String, dynamic>> getConfig() async {
+    try {
+      final response = await get('/api/config');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint("Error in getConfig: $e");
+    }
+    return {};
+  }
+
   Map<String, String> _headers() {
     final headers = {
       'Content-Type': 'application/json; charset=UTF-8',
