@@ -12,8 +12,8 @@ import 'trip_planner_screen.dart';
 import '../services/e2ee_helper.dart';
 import '../services/csv_export.dart' as csv_exporter;
 import 'dart:math';
-import 'package:flutter/foundation.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 
 class GroupDetailsScreen extends StatefulWidget {
@@ -30,7 +30,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> with SingleTick
   final TextEditingController _chatController = TextEditingController();
   final ScrollController _chatScrollController = ScrollController();
   bool _showCiphertext = false;
-  GoogleMapController? _googleMapController;
+  final MapController _mapController = MapController();
 
   @override
   void initState() {
@@ -1613,42 +1613,70 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> with SingleTick
           flex: 3,
           child: Stack(
             children: [
-              if (kIsWeb && !state.googleMapsInitialized)
-                const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('Initializing Google Maps...'),
-                    ],
-                  ),
-                )
-              else
-                GoogleMap(
-                  initialCameraPosition: CameraPosition(
-                    target: mapCenter,
-                    zoom: 13.0,
-                  ),
-                  onMapCreated: (controller) {
-                    _googleMapController = controller;
-                  },
-                  markers: onlineMembers.map((loc) {
-                    final name = loc['name'] as String? ?? 'Member';
-                    final lat = loc['latitude'] as double;
-                    final lng = loc['longitude'] as double;
-                    final isMe = loc['userId'] == state.currentUser?.id;
-
-                    return Marker(
-                      markerId: MarkerId(loc['userId'] ?? ''),
-                      position: LatLng(lat, lng),
-                      infoWindow: InfoWindow(
-                        title: isMe ? "You ($name)" : name,
-                        snippet: isMe ? "Sharing location" : "Online",
-                      ),
-                    );
-                  }).toSet(),
+              FlutterMap(
+                mapController: _mapController,
+                options: MapOptions(
+                  initialCenter: mapCenter,
+                  initialZoom: 13.0,
                 ),
+                children: [
+                  TileLayer(
+                    urlTemplate: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+                    userAgentPackageName: 'com.tripplanner.app',
+                  ),
+                  MarkerLayer(
+                    markers: onlineMembers.map((loc) {
+                      final name = loc['name'] as String? ?? 'Member';
+                      final lat = loc['latitude'] as double;
+                      final lng = loc['longitude'] as double;
+                      final isMe = loc['userId'] == state.currentUser?.id;
+
+                      return Marker(
+                        point: LatLng(lat, lng),
+                        width: 70,
+                        height: 70,
+                        child: Tooltip(
+                          message: isMe ? "You ($name)" : name,
+                          triggerMode: TooltipTriggerMode.tap,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isMe ? const Color(0xFF5BC5A7) : Colors.blueGrey[800],
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Colors.black26,
+                                      blurRadius: 4,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  isMe ? 'Me' : name.split(' ').first,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const Icon(
+                                Icons.location_on,
+                                color: Colors.red,
+                                size: 30,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
               Positioned(
                 bottom: 16,
                 right: 16,
@@ -1665,9 +1693,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> with SingleTick
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Live GPS location updated!')),
                         );
-                        _googleMapController?.animateCamera(
-                          CameraUpdate.newLatLng(LatLng(position.latitude, position.longitude)),
-                        );
+                        _mapController.move(LatLng(position.latitude, position.longitude), 13.0);
                       } else {
                         // Fallback: Jitter the current simulated coordinates
                         final random = Random();
@@ -1677,9 +1703,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> with SingleTick
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('GPS unavailable. Updated mock coordinates instead.')),
                         );
-                        _googleMapController?.animateCamera(
-                          CameraUpdate.newLatLng(LatLng(lat, lng)),
-                        );
+                        _mapController.move(LatLng(lat, lng), 13.0);
                       }
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
