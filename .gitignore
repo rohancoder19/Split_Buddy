@@ -81,3 +81,6 @@ app.*.map.json
 # Exceptions to above rules.
 !**/ios/**/*.xcworkspace/xcshareddata/
 !**/ios/**/*.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings
+
+# Local configuration files containing credentials
+config.json

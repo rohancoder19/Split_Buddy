@@ -42,8 +42,18 @@ class ApiService {
     final router = Router();
 
     // Config endpoint (to fetch backend variables like Gemini API key securely)
-    router.get('/api/config', (Request request) {
-      final apiKey = Platform.environment['GEMINI_API_KEY'] ?? Platform.environment['GOOGLE_API_KEY'] ?? '';
+    router.get('/api/config', (Request request) async {
+      String apiKey = Platform.environment['GEMINI_API_KEY'] ?? Platform.environment['GOOGLE_API_KEY'] ?? '';
+      if (apiKey.isEmpty) {
+        try {
+          final file = File('config.json');
+          if (await file.exists()) {
+            final content = await file.readAsString();
+            final config = jsonDecode(content);
+            apiKey = config['geminiApiKey'] ?? config['google_api_key'] ?? '';
+          }
+        } catch (_) {}
+      }
       return Response.ok(
         jsonEncode({'geminiApiKey': apiKey}),
         headers: {'content-type': 'application/json'},

@@ -11,6 +11,7 @@ import '../models/activity.dart';
 import '../models/expense.dart';
 import '../services/e2ee_helper.dart';
 import '../services/api_service.dart';
+import '../services/web_script_helper.dart';
 
 class AppState extends ChangeNotifier {
   final ApiService _api = ApiService();
@@ -32,8 +33,10 @@ class AppState extends ChangeNotifier {
 
   User? currentUser;
   String? _serverGeminiApiKey;
+  bool _googleMapsInitialized = false;
 
   bool get isAuthenticated => currentUser != null;
+  bool get googleMapsInitialized => _googleMapsInitialized;
 
   AppState() {
     // We fetch data dynamically after authentication
@@ -46,11 +49,31 @@ class AppState extends ChangeNotifier {
       if (config.containsKey('geminiApiKey')) {
         _serverGeminiApiKey = config['geminiApiKey'];
         notifyListeners();
+        initializeGoogleMaps();
       }
     } catch (e) {
       debugPrint("Error loading config: $e");
     }
   }
+
+  void initializeGoogleMaps() {
+    final apiKey = _getGeminiApiKey();
+    if (apiKey != null && apiKey.isNotEmpty && apiKey != 'YOUR_API_KEY_HERE') {
+      final src = 'https://maps.googleapis.com/maps/api/js?key=$apiKey';
+      injectWebScript(src, () {
+        _googleMapsInitialized = true;
+        notifyListeners();
+      });
+    } else {
+      if (!kIsWeb) {
+        _googleMapsInitialized = true;
+        notifyListeners();
+      }
+    }
+  }
+
+  // Public getter to safely get Gemini/Google API key
+  String? get geminiApiKey => _getGeminiApiKey();
 
   // Helper to safely get Gemini API key
   String? _getGeminiApiKey() {
