@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/app_state.dart';
-import 'screens/register_screen.dart';
+import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -23,7 +23,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Split-Buddy',
       theme: AppTheme.lightTheme,
-      home: const RegisterScreen(),
+      home: const SplashScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
